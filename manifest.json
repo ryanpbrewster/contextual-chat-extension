@@ -4,7 +4,7 @@
   "manifest_version": 2,
   "description": "Simple Chrome extension to allow collaborate chatting directly on a webpage.",
   "homepage_url": "https://github.com/ryanpbrewster/contextual-chat-extension",
-  "content_security_policy": "script-src 'self' https://cdn.firebase.com https://ryanpbrewster-messenger.firebaseio.com; object-src 'self'",
+  "content_security_policy": "script-src 'self' https://cdn.firebase.com https://*.firebaseio.com; object-src 'self'",
   "icons": {
     "16": "icons/icon16.png",
     "48": "icons/icon48.png",
@@ -14,5 +14,8 @@
     "default_icon": "icons/icon19.png",
     "default_title": "browser action",
     "default_popup": "src/browser_action/browser_action.html"
-  }
+  },
+  "permissions": [
+    "tabs"
+  ]
 }
