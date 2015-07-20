@@ -1,13 +1,18 @@
-chrome.tabs.query({'active': true, 'lastFocusedWindow': true}, function (tabs) {
-  var url = tabs[0].url;
-  console.log("Found url: " + url);
-  console.log("About to set up contextual chat for this page");
+main()
 
-  setupContextualChat(url);
-});
+function main() {
+  chrome.tabs.query({'active': true, 'lastFocusedWindow': true}, function (tabs) {
+    var url = tabs[0].url;
+    console.log("Found url: " + url);
+    console.log("About to set up contextual chat for this page");
+
+    setupContextualChat(url);
+  });
+}
 
 function setupContextualChat(url) {
   console.log("Setting up contextual chat");
+  Firebase.enableLogging(true);
   var myDataRef = new Firebase("https://ryanpbrewster-context-chat.firebaseio.com");
 
   console.log("Let's see if this user is logged in")
@@ -26,59 +31,59 @@ function setupContextualChat(url) {
 
 function authenticateUser(usersRef, callback) {
   console.log("Trying to log this user in")
-
-  console.log("Calling the FB auth popup");
-  usersRef.authWithPassword({
-    email    : "ryanpbrewster@gmail.com",
-    password : "foobarbaz"
-  }, function(error, authData) {
+  var email_address = prompt("Email");
+  console.log("email_address: " + email_address);
+  var password = prompt("Password");
+  var email_password = {
+    email: email_address,
+    password: password
+  };
+  usersRef.authWithPassword(email_password, function(error, authData) {
     if (error) {
       console.log("Login Failed!", error);
+      var makeNewAccount = confirm("Looks like you don't have an account. Want to make one?");
+      if( makeNewAccount ) {
+        usersRef.createUser(email_password, function(error, userData) {
+          if( error ) {
+            alert("For some reason we can't seem to make an account for you. Bummer.");
+          } else {
+            console.log("Created a new user with userData: " + userData);
+            var newUser = usersRef.child(userData.uid).set({
+              name: email_address.replace(/@.*/, ''),
+            });
+            console.log("New user data in usersRef: " + newUser);
+            usersRef.authWithPassword(email_password, function(error, authData) {
+              callback(authData);
+            });
+          }
+        })
+      }
     } else {
-      console.log("Authenticated successfully with payload:", authData);
-      usersRef.child(authData.uid).set({});
+      alert("Sweet, logged you in.");
       callback(authData);
     }
   });
-
-  console.log("Setting up a listener for authentication");
-  usersRef.onAuth(function(authData) {
-    console.log("Authentication trigger went off")
-    if (authData) {
-      // save the user"s profile into Firebase so we can list users,
-      // use them in Security and Firebase Rules, and show profiles
-      console.log("The name we extracted from authData is " + getName(authData));
-      usersRef.child(authData.uid).update({
-        provider: authData.provider,
-        name: getName(authData)
-      });
-    } else {
-      console.log("Somehow the onAuth trigger hit but there's no authData")
-    }
-  });
 }
-
-function getName(authData) {
-  switch(authData.provider) {
-    case 'password':
-      return authData.password.email.replace(/@.*/, '');
-     case 'twitter':
-       return authData.twitter.displayName;
-     case 'facebook':
-       return authData.facebook.displayName;
-  }
-}
-
 
 function findOrMakeNewChat(myDataRef, url, authData) {
-  console.log("Checking if there is an existing chat at this page.");
-  Firebase.enableLogging(false);
-  console.log("Set up myDataRef: " + myDataRef);
-
+  var usersRef = myDataRef.child("users");
   var threadsRef = myDataRef.child("threads");
   var messagesRef = myDataRef.child("thread_messages");
   var threadUsersRef = myDataRef.child("thread_users");
   var userThreadsRef = myDataRef.child("user_threads");
+
+  usersRef.child(authData.uid).once("value", function(snapshot) {
+    console.log("Setting the user's name");
+    $("#nameInput").val(snapshot.child("name").val());
+  })
+
+  console.log("Making it so the user can logout");
+  document.getElementById("logoutButton").addEventListener("click", function(e) {
+    myDataRef.unauth();
+  });
+
+  console.log("Checking if there is an existing chat at this page.");
+
 
 
   threadsRef.orderByChild("url").equalTo(url).limitToFirst(1).once("value", function(snapshot) {
